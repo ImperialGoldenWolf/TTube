@@ -1,0 +1,33 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Local release/installer artifacts
+release/
+dist-bin/
+build-pyinstaller/
+installer-output/
+
+# Test / typecheck / lint caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE / OS
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

@@ -1,0 +1,4 @@
+yt-dlp>=2025.1.0
+sounddevice>=0.4.7
+imageio-ffmpeg>=0.5.1
+windows-curses>=2.4.0; platform_system=="Windows"
