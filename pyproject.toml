@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ttube"
+version = "0.1.0"
+description = "Terminal UI (TUI) to search YouTube and stream audio"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "TTube contributors" }]
+
+dependencies = [
+  "yt-dlp>=2025.1.0",
+  "sounddevice>=0.4.7",
+  "imageio-ffmpeg>=0.5.1",
+  "windows-curses>=2.4.0; platform_system == 'Windows'",
+]
+
+[project.scripts]
+ttube = "ttube:cli"
+
+[tool.setuptools]
+py-modules = ["ttube", "ttube_stream", "ttube_youtube"]
