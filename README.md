@@ -1,86 +1,136 @@
-# TTube
-TTube is a tiny terminal UI (TUI) for searching YouTube and streaming the audio of a selected result.
+# 🎧 TTube
 
-## Features
-- Search YouTube from the terminal
-- Stream audio playback (no file download)
-- Pause/resume, stop
-- Seeking controls (multiple step sizes)
-- Progress bar with buffered-ahead indicator
-- Simple stereo VU meter (visualizer)
+![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Platform: Windows | macOS | Linux](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 
-## Requirements
-- Python 3.10+
-- A working audio output device
-- ffmpeg on your PATH (recommended)
-  - If ffmpeg isn't on PATH, TTube will try a Python fallback via `imageio-ffmpeg`.
+> A minimalist, lightning-fast Terminal UI (TUI) for searching and streaming YouTube audio directly from your command line. No downloads, no clutter—just music.
 
-## Install
+##  Features
 
-### Quick install (recommended)
+* **Seamless Search:** Find and select tracks without ever leaving the terminal.
+* **Zero-Download Streaming:** Audio is streamed directly to your output device.
+* **Advanced Playback:** Pause, resume, stop, and granular seeking capabilities.
+* **Visual Feedback:** Features a real-time progress bar with buffer indicators and a built-in **stereo VU meter**.
+
+---
+
+##  Prerequisites
+
+Before installing TTube, ensure your system has the following:
+* **Python 3.10** or higher.
+* A working audio output device.
+* **FFmpeg** installed and added to your system `PATH` (Highly Recommended).
+    * *Note: If FFmpeg is missing, TTube will attempt a Python fallback via `imageio-ffmpeg`.*
+
+---
+
+##  Getting Started
+
+### 1. Quick Install (Recommended)
+The easiest way to get TTube running is using the provided install script. This automatically creates a virtual environment (`.venv`) and installs all dependencies.
+
 ```bash
+# Clone the repository, navigate to the folder, then run:
 python install.py
+
 ```
-This creates a `.venv` in the project folder and installs TTube (plus dependencies) into it.
 
-### Manual install
-Create a virtual environment (recommended) and install dependencies.
+### 2. Manual Install
 
-#### Windows (PowerShell)
+If you prefer to set things up manually, creating a virtual environment is still highly recommended.
+
+**Windows (PowerShell)**
+
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e .
+
 ```
 
-#### macOS / Linux (bash/zsh)
+**macOS / Linux (Bash/Zsh)**
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e .
+
 ```
 
-## Run
-If you used the installer / editable install:
-- `python -m ttube`
+### 3. Run TTube
 
-Or run directly from the repo:
+If you used the installer or performed an editable install, launch the app via:
+
+```bash
+python -m ttube
+
+```
+
+Alternatively, you can run the script directly from the repository root:
+
 ```bash
 python ttube.py
+
 ```
 
-## Controls
-You can always see the shortcuts in-app, but the defaults are:
-- Enter: search (when focused on the search bar) / play selected (when focused on results)
-- ↑/↓: move selection
-- Esc: focus search
-- Tab: switch focus (search/results)
-- P: pause/resume
-- Space: pause/resume (when focused on results)
-- S: stop
-- Q: quit
+---
 
-Seeking (when duration is known):
-- ←/→: ±5s
-- [ / ]: ±10s
-- PgUp/PgDn: ±30s
-- Home/End: jump to start/end
+##  Controls
 
-## Troubleshooting
-- If you see “ffmpeg not found”, install ffmpeg and ensure it’s on PATH.
-  - Windows: `winget install Gyan.FFmpeg` (or use Chocolatey/Scoop)
-  - macOS: `brew install ffmpeg`
-  - Ubuntu/Debian: `sudo apt-get install ffmpeg`
-- If the UI looks cut off, try enlarging the terminal window.
-- If audio doesn’t play, verify your OS audio output device works and that PortAudio is available (required by `sounddevice`).
+TTube is designed for rapid, keyboard-driven navigation.
 
-## Project layout
-- `ttube.py`: curses UI + app state
-- `ttube_youtube.py`: search + resolve best audio stream using `yt-dlp`
-- `ttube_stream.py`: ffmpeg -> PCM -> `sounddevice` playback, buffering, seeking, and the VU meter levels
+| Action | Keybinding | Context |
+| --- | --- | --- |
+| **Search** | `Enter` | When focused on the Search Bar |
+| **Play Track** | `Enter` | When focused on Results |
+| **Navigate** | `↑` / `↓` | Move selection up/down |
+| **Focus Search** | `Esc` | Returns cursor to the search input |
+| **Switch Focus** | `Tab` | Toggles between Search and Results |
+| **Pause / Resume** | `P` or `Space` | `Space` requires Results focus |
+| **Stop** | `S` | Stops current playback |
+| **Quit** | `Q` | Exits TTube |
 
-## Notes
-This project uses `yt-dlp` to resolve streaming URLs. Make sure your usage complies with applicable terms and laws.
+### Seeking Controls
 
-## License
-MIT (see `LICENSE`).
+*(Available when track duration is known)*
+
+| Jump Size | Keys |
+| --- | --- |
+| **± 5 seconds** | `←` / `→` |
+| **± 10 seconds** | `[` / `]` |
+| **± 30 seconds** | `PgUp` / `PgDn` |
+| **Start / End** | `Home` / `End` |
+
+---
+
+##  Under the Hood
+
+TTube is broken down into three core, lightweight modules:
+
+* `ttube.py`: The `curses`-based frontend UI and application state manager.
+* `ttube_youtube.py`: The search and extraction engine, powered by `yt-dlp`.
+* `ttube_stream.py`: The audio pipeline routing FFmpeg to PCM, handled via `sounddevice` with buffering and VU level calculations.
+
+---
+
+##  Troubleshooting
+
+* **"ffmpeg not found" error:** Install FFmpeg and ensure it is on your system `PATH`.
+* **Windows:** `winget install Gyan.FFmpeg` (or use Chocolatey/Scoop)
+* **macOS:** `brew install ffmpeg`
+* **Linux (Debian/Ubuntu):** `sudo apt-get install ffmpeg`
+
+
+* **UI is cut off:** Your terminal window is too small. Try enlarging it and restarting the app.
+* **No audio playing:** Verify that your OS audio output device is working correctly and that PortAudio is available (a backend requirement for `sounddevice`).
+
+---
+
+## ⚖️ License & Disclaimer
+
+This project is licensed under the **MIT License**. See the `LICENSE` file for details.
+
+*Disclaimer: TTube utilizes `yt-dlp` to resolve streaming URLs. Please ensure your usage complies with applicable YouTube Terms of Service and local copyright laws.*
+
+
