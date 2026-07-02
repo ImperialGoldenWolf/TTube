@@ -52,11 +52,32 @@ def _setup_windows_console() -> None:
                 if hicon_big:
                     user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon_big)
 
-        # ── 3. Maximize (fullscreen-windowed, taskbar still visible) ─────────
+        # ── 3. Windowed-maximized: fill the work area keeping window chrome ───
+        #    SW_MAXIMIZE can trigger true console-fullscreen mode on Windows
+        #    (removes title bar / close button). SetWindowPos to the work area
+        #    gives identical visual result while keeping all chrome intact.
         hwnd = kernel32.GetConsoleWindow()
         if hwnd:
-            SW_MAXIMIZE = 3
-            user32.ShowWindow(hwnd, SW_MAXIMIZE)
+            class RECT(ctypes.Structure):
+                _fields_ = [("left",   ctypes.c_long),
+                            ("top",    ctypes.c_long),
+                            ("right",  ctypes.c_long),
+                            ("bottom", ctypes.c_long)]
+
+            work = RECT()
+            SPI_GETWORKAREA = 0x0030
+            user32.SystemParametersInfoW(SPI_GETWORKAREA, 0,
+                                         ctypes.byref(work), 0)
+
+            SWP_NOZORDER   = 0x0004
+            SWP_NOACTIVATE = 0x0010
+            user32.SetWindowPos(
+                hwnd, 0,
+                work.left, work.top,
+                work.right  - work.left,
+                work.bottom - work.top,
+                SWP_NOZORDER | SWP_NOACTIVATE,
+            )
 
     except Exception:
         pass  # Non-critical — silently skip on any failure
