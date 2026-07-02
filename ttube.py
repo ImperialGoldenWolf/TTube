@@ -1,12 +1,66 @@
 from __future__ import annotations
 
 import curses
+import os
+import sys
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import List, Optional, Tuple
 
 from ttube_stream import StreamPlayer
 from ttube_youtube import AudioStream, SearchResult, resolve_best_audio_stream, search_youtube, fetch_lyrics, Lyrics
+
+
+def _setup_windows_console() -> None:
+    """Set console title, taskbar icon, and maximize window (Windows only)."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        import ctypes.wintypes as wt
+
+        kernel32 = ctypes.windll.kernel32
+        user32   = ctypes.windll.user32
+
+        # ── 1. Window title ──────────────────────────────────────────────────
+        kernel32.SetConsoleTitleW("TTube")
+
+        # ── 2. Taskbar / title-bar icon ──────────────────────────────────────
+        # Resolve icon path: same directory as this script / frozen exe.
+        base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+        ico_path = os.path.join(base, "ttube.ico")
+
+        if os.path.exists(ico_path):
+            LR_LOADFROMFILE = 0x00000010
+            IMAGE_ICON      = 0x00000001
+            WM_SETICON      = 0x0080
+            ICON_SMALL      = 0
+            ICON_BIG        = 1
+
+            # Load small (16px) and large (32px) icons
+            hicon_small = user32.LoadImageW(
+                None, ico_path, IMAGE_ICON, 16, 16, LR_LOADFROMFILE
+            )
+            hicon_big = user32.LoadImageW(
+                None, ico_path, IMAGE_ICON, 32, 32, LR_LOADFROMFILE
+            )
+
+            hwnd = kernel32.GetConsoleWindow()
+            if hwnd:
+                if hicon_small:
+                    user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon_small)
+                if hicon_big:
+                    user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon_big)
+
+        # ── 3. Maximize (fullscreen-windowed, taskbar still visible) ─────────
+        hwnd = kernel32.GetConsoleWindow()
+        if hwnd:
+            SW_MAXIMIZE = 3
+            user32.ShowWindow(hwnd, SW_MAXIMIZE)
+
+    except Exception:
+        pass  # Non-critical — silently skip on any failure
+
 
 
 HELP = "Enter: search/play  ↑↓: navigate  Esc: search  Tab: switch  P: pause  S: stop  L: lyrics  Q: quit"
@@ -752,6 +806,7 @@ def main(stdscr) -> None:
 
 def cli() -> None:
     """Console entrypoint installed by pip (see pyproject.toml)."""
+    _setup_windows_console()
     curses.wrapper(main)
 
 

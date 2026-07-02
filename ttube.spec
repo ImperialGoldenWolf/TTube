@@ -14,7 +14,7 @@ a = Analysis(
     ['ttube.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('ttube.ico', '.')],
     hiddenimports=['sounddevice', 'yt_dlp', 'imageio_ffmpeg', 'windows_curses' if is_windows else ''],
     hookspath=[],
     hooksconfig={},
