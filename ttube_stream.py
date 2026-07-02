@@ -111,7 +111,7 @@ class StreamPlayer:
         self,
         ffmpeg: str = "ffmpeg",
         audio_format: AudioFormat | None = None,
-        buffer_seconds: float = 3.0,
+        buffer_seconds: float = 6.0,
     ):
         self._ffmpeg = ffmpeg
         self._fmt = audio_format or AudioFormat()
@@ -259,7 +259,9 @@ class StreamPlayer:
                 "-reconnect_streamed",
                 "1",
                 "-reconnect_delay_max",
-                "5",
+                "10",
+                "-rtbufsize",
+                "50M",
             ]
             if headers_arg:
                 cmd += ["-headers", headers_arg]

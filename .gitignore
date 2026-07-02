@@ -31,3 +31,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Binary artifacts
+*.exe
+*.msi

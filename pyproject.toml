@@ -5,11 +5,26 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ttube"
 version = "0.1.0"
-description = "Terminal UI (TUI) to search YouTube and stream audio"
+description = "Terminal UI (TUI) to search YouTube and stream audio directly from your terminal"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
-authors = [{ name = "TTube contributors" }]
+authors = [{ name = "TTube Contributors" }]
+keywords = ["youtube", "audio", "streaming", "terminal", "tui", "music"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console :: Curses",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Sound/Audio",
+]
 
 dependencies = [
   "yt-dlp>=2025.1.0",
@@ -18,8 +33,23 @@ dependencies = [
   "windows-curses>=2.4.0; platform_system == 'Windows'",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pyinstaller>=6.0",
+    "pytest>=7.0",
+    "black>=23.0",
+    "flake8>=6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/ImperialGoldenWolf/TTube"
+Issues = "https://github.com/ImperialGoldenWolf/TTube/issues"
+
 [project.scripts]
 ttube = "ttube:cli"
 
 [tool.setuptools]
 py-modules = ["ttube", "ttube_stream", "ttube_youtube"]
+
+[tool.setuptools.package-data]
+ttube = ["*.ico", "*.png"]

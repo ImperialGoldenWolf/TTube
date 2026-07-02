@@ -6,12 +6,12 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from typing import List, Optional, Tuple
 
 from ttube_stream import StreamPlayer
-from ttube_youtube import AudioStream, SearchResult, resolve_best_audio_stream, search_youtube
+from ttube_youtube import AudioStream, SearchResult, resolve_best_audio_stream, search_youtube, fetch_lyrics, Lyrics
 
 
-HELP = "Enter: search/play  ↑↓: navigate  Esc: search  Tab: switch  P/Space: pause  S: stop  Q: quit"
+HELP = "Enter: search/play  ↑↓: navigate  Esc: search  Tab: switch  P: pause  S: stop  L: lyrics  Q: quit"
 HELP2 = "Seek: ←→ ±5s  [ ] ±10s  PgUp/Dn ±30s  Home/End"
-SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+SPINNER = "/-\\|"
 
 MIN_COLS = 60
 MIN_ROWS = 14
@@ -50,6 +50,8 @@ def _init_colors() -> None:
     curses.init_pair(7, curses.COLOR_GREEN, curses.COLOR_BLACK)
     # pair 8: progress bar
     curses.init_pair(8, curses.COLOR_GREEN, -1)
+    # pair 9: visualizers (both same color)
+    curses.init_pair(9, curses.COLOR_CYAN, -1)
 
 
 class App:
@@ -67,13 +69,19 @@ class App:
         # - results: arrows select, Enter plays (Space toggles pause)
         self.mode: str = "query"  # query | results
 
-        self._executor = ThreadPoolExecutor(max_workers=2)
+        self._executor = ThreadPoolExecutor(max_workers=3)
         self._pending_search: Optional[Future[List[SearchResult]]] = None
         self._pending_play: Optional[Future[Tuple[AudioStream, None]]] = None
         self._pending_seek: Optional[Future[None]] = None
+        self._pending_lyrics: Optional[Future[Lyrics | None]] = None
 
         # Used to prevent stale background play tasks from taking over playback.
         self._play_generation: int = 0
+
+        # Lyrics support
+        self.lyrics: Optional[Lyrics] = None
+        self.current_lyric_index: int = 0
+        self.show_lyrics: bool = True
 
         self.player = StreamPlayer()
 
@@ -110,13 +118,20 @@ class App:
         item = self.results[idx]
         self.status = "Resolving stream…"
         self.now_playing = item.title
+        self.lyrics = None
+        self.current_lyric_index = 0
+        self.show_lyrics = True  # Re-enable lyrics when starting playback
 
         # Invalidate any previous play tasks so they can't call player.play() later.
         self._play_generation += 1
         play_gen = self._play_generation
+        webpage_url = item.webpage_url
+
+        # Start fetching lyrics
+        self._pending_lyrics = self._executor.submit(fetch_lyrics, webpage_url)
 
         def _do_play() -> Tuple[AudioStream, None]:
-            stream = resolve_best_audio_stream(item.webpage_url)
+            stream = resolve_best_audio_stream(webpage_url)
 
             # If a newer play request happened (or Stop was pressed), do nothing.
             if play_gen != self._play_generation:
@@ -162,6 +177,45 @@ class App:
             finally:
                 self._pending_seek = None
 
+        # Check for fetched lyrics
+        if self._pending_lyrics is not None and self._pending_lyrics.done():
+            try:
+                self.lyrics = self._pending_lyrics.result()
+                self.current_lyric_index = 0
+            except Exception:
+                self.lyrics = None
+            finally:
+                self._pending_lyrics = None
+
+    def get_current_lyric(self) -> str | None:
+        """Get the current lyric based on playback position."""
+        if not self.lyrics or not self.lyrics.lines:
+            return None
+
+        pos = self.player.position_seconds()
+        if pos is None:
+            return None
+
+        # Find the lyric at current position
+        for i, line in enumerate(self.lyrics.lines):
+            if line.start_time <= pos < line.end_time:
+                self.current_lyric_index = i
+                return line.text
+            if pos < line.start_time:
+                break
+
+        return None
+
+    def get_next_lyric(self) -> str | None:
+        """Get the next lyric line."""
+        if not self.lyrics or not self.lyrics.lines:
+            return None
+        
+        if self.current_lyric_index + 1 < len(self.lyrics.lines):
+            return self.lyrics.lines[self.current_lyric_index + 1].text
+        
+        return None
+
 
 def _format_time(seconds: float | None) -> str:
     if seconds is None:
@@ -205,6 +259,16 @@ def _meter_bar(width: int, level: float) -> str:
     return "#" * filled + "." * max(0, width - filled)
 
 
+def _capitalize_english(text: str) -> str:
+    """Capitalize text if it appears to be in English."""
+    # Simple heuristic: if most characters are ASCII letters, it's likely English
+    ascii_letters = sum(1 for c in text if c.isascii() and c.isalpha())
+    total_letters = sum(1 for c in text if c.isalpha())
+    if total_letters > 0 and ascii_letters / total_letters > 0.8:
+        return text.title()
+    return text
+
+
 def _draw(stdscr, app: App) -> None:
     stdscr.erase()
     h, w = stdscr.getmaxyx()
@@ -227,28 +291,44 @@ def _draw(stdscr, app: App) -> None:
     is_busy = bool(app.busy_label())
     spinner = SPINNER[int(time.time() * 8) % len(SPINNER)] if is_busy else " "
 
-    _safe_addstr(stdscr, 0, 0, "▶ TTube", header_attr)
-
+    # TTube ASCII art logo - custom simple design centered
+    ttube_lines = [
+        "████████╗████████╗██╗   ██╗██████╗ ███████╗",
+        "╚══██╔══╝╚══██╔══╝██║   ██║██╔══██╗██╔════╝",
+        "   ██║      ██║   ██║   ██║██████╔╝█████╗  ",
+        "   ██║      ██║   ██║   ██║██╔══██╗██╔══╝  ",
+        "   ██║      ██║   ╚██████╔╝██████╔╝███████╗",
+        "   ╚═╝      ╚═╝    ╚═════╝ ╚═════╝ ╚══════╝",
+        ""
+    ]
+    
     focus = "SEARCH" if app.mode == "query" else "RESULTS"
-    right = f"[{focus}] {spinner} {app.busy_label()}".rstrip()
-    _safe_addstr(stdscr, 0, max(0, w - len(right) - 1), right[: max(0, w - 1)], header_attr)
-
-    _safe_addstr(stdscr, 1, 0, HELP[: max(0, w - 1)])
-    _safe_addstr(stdscr, 2, 0, HELP2[: max(0, w - 1)], curses.A_DIM)
+    status_right = f"[{focus}] {spinner} {app.busy_label()}".rstrip()
+    _safe_addstr(stdscr, 0, max(0, w - len(status_right) - 1), status_right[: max(0, w - 1)], header_attr)
+    
+    # Draw TTube ASCII art centered
+    for i, line in enumerate(ttube_lines):
+        if i < min(7, h):
+            # Center the line
+            line_len = len(line)
+            left_pad = max(0, (w - line_len) // 2)
+            display_line = (" " * left_pad + line)[: max(0, w - 1)]
+            logo_attr = curses.color_pair(1) if curses.has_colors() else 0
+            _safe_addstr(stdscr, i, 0, display_line, logo_attr)
 
     # Search bar
-    query_label = "🔍 Search" + ("*" if app.mode == "query" else "")
+    query_label = "[?] Search" + ("*" if app.mode == "query" else "")
     label_attr = curses.color_pair(6) | curses.A_BOLD if curses.has_colors() else curses.A_BOLD
-    _safe_addstr(stdscr, 4, 0, f"{query_label}: ", label_attr)
+    _safe_addstr(stdscr, 8, 0, f"{query_label}: ", label_attr)
     bar_x = len(query_label) + 2
     bar_w = max(0, w - bar_x - 1)
     q = app.query
     q_attr = curses.A_REVERSE if app.mode == "query" else 0
-    _safe_addstr(stdscr, 4, bar_x, (q + " " * max(0, bar_w - len(q)))[:bar_w], q_attr)
+    _safe_addstr(stdscr, 8, bar_x, (q + " " * max(0, bar_w - len(q)))[:bar_w], q_attr)
 
-    # Results section (moved up)
-    results_y = 6
-    results_header = f"📋 Results ({len(app.results)})" + ("*" if app.mode == "results" else "")
+    # Results section
+    results_y = 10
+    results_header = f"[*] Results ({len(app.results)})" + ("*" if app.mode == "results" else "")
     results_attr = curses.color_pair(5) | curses.A_BOLD if curses.has_colors() else curses.A_BOLD
     _safe_addstr(stdscr, results_y, 0, results_header[: max(0, w - 1)], results_attr)
 
@@ -257,6 +337,16 @@ def _draw(stdscr, app: App) -> None:
     reserved = 8 if app.now_playing else 3
     max_rows = max(0, h - list_top - reserved)
     app._last_max_rows = max_rows
+    
+    # Calculate right column for lyrics display
+    results_col_width = 60  # Width reserved for results list (increased from 45)
+    lyrics_col_start = results_col_width + 2  # Lyrics start after results
+    lyrics_col_width = max(0, w - lyrics_col_start - 1)
+    
+    # Populate lyric_display_rows with only valid rows (not overlapping progress bar)
+    lyric_display_rows = []
+    for row_idx in range(max_rows):
+        lyric_display_rows.append(list_top + row_idx)
 
     if app.results and max_rows > 0:
         start = 0
@@ -268,8 +358,8 @@ def _draw(stdscr, app: App) -> None:
             y = list_top + i
             absolute_idx = start + i
             selected = absolute_idx == app.selected
-            prefix = "▶ " if selected else "  "
-            line = (prefix + r.title)[: max(0, w - 1)]
+            prefix = ">> " if selected else "   "
+            line = (prefix + r.title)[: max(0, results_col_width - 1)]
 
             if selected:
                 attr = curses.color_pair(2) | curses.A_BOLD if curses.has_colors() else curses.A_REVERSE
@@ -291,12 +381,104 @@ def _draw(stdscr, app: App) -> None:
             _safe_addstr(stdscr, results_y, max(0, w - len(pos) - len(scrollbar) - 2), scrollbar, curses.A_DIM)
             _safe_addstr(stdscr, results_y, max(0, w - len(pos) - 1), pos, curses.A_DIM)
 
+    # Display lyrics on the right side at eye level (aligned with results)
+    if app.show_lyrics and lyric_display_rows and lyrics_col_width > 0:
+        # Check if lyrics are available and loaded
+        current_lyric = None
+        prefix = ""
+        if app.lyrics is None:
+            # Lyrics still loading, show nothing
+            pass
+        elif app.lyrics and app.lyrics.lines:
+            current_lyric = app.get_current_lyric()
+            next_lyric = app.get_next_lyric()
+            lyric_attr = curses.color_pair(3) if curses.has_colors() else curses.A_BOLD
+            
+            # If no current lyric (playback not started or between lyrics), show first lyric
+            if not current_lyric and app.lyrics.lines:
+                current_lyric = app.lyrics.lines[0].text
+                app.current_lyric_index = 0
+                prefix = ">> "
+            elif current_lyric:
+                # Get animation progress
+                lyric_start = app.lyrics.lines[app.current_lyric_index].start_time
+                lyric_end = app.lyrics.lines[app.current_lyric_index].end_time
+                pos = app.player.position_seconds() or 0
+                
+                if lyric_end > lyric_start:
+                    progress = (pos - lyric_start) / (lyric_end - lyric_start)
+                    progress = max(0.0, min(1.0, progress))
+                
+                if progress < 0.3:
+                    prefix = ">> "
+                elif progress < 0.7:
+                    prefix = "> "
+                else:
+                    prefix = "  "
+            else:
+                prefix = ">> "
+        else:
+            prefix = ""
+        
+        if current_lyric:
+            # Format lyric text with capitalization
+            lyric_text = _capitalize_english(current_lyric)
+            full_text = prefix + lyric_text
+            
+            # Split long lyrics into multiple lines on the right column
+            words = full_text.split()
+            lines_to_display = []
+            current_line = ""
+            
+            for word in words:
+                if len(current_line) + len(word) + 1 <= lyrics_col_width:
+                    current_line += (" " if current_line else "") + word
+                else:
+                    if current_line:
+                        lines_to_display.append(current_line)
+                    current_line = word
+            
+            if current_line:
+                lines_to_display.append(current_line)
+            
+            # Display wrapped lyrics on the right side
+            for line_idx, lyric_line in enumerate(lines_to_display[:len(lyric_display_rows)]):
+                y = lyric_display_rows[line_idx]
+                _safe_addstr(stdscr, y, lyrics_col_start, lyric_line[: max(0, lyrics_col_width - 1)], lyric_attr)
+            
+            # Display next lyric preview
+            if next_lyric and len(lines_to_display) < len(lyric_display_rows):
+                next_lyric_text = _capitalize_english(next_lyric)
+                next_display = "   " + next_lyric_text
+                next_words = next_display.split()
+                next_lines = []
+                next_current_line = ""
+                
+                for word in next_words:
+                    if len(next_current_line) + len(word) + 1 <= lyrics_col_width:
+                        next_current_line += (" " if next_current_line else "") + word
+                    else:
+                        if next_current_line:
+                            next_lines.append(next_current_line)
+                        next_current_line = word
+                
+                if next_current_line:
+                    next_lines.append(next_current_line)
+                
+                # Display next lyric preview on next available row
+                for next_idx, next_line in enumerate(next_lines):
+                    display_row_idx = len(lines_to_display) + next_idx
+                    if display_row_idx < len(lyric_display_rows):
+                        y = lyric_display_rows[display_row_idx]
+                        next_attr = curses.A_DIM if curses.has_colors() else 0
+                        _safe_addstr(stdscr, y, lyrics_col_start, next_line[: max(0, lyrics_col_width - 1)], next_attr)
+
     # Now playing with progressbar (moved to bottom section)
     if app.now_playing:
         np_line_y = h - 7
         np_attr = curses.color_pair(3) | curses.A_BOLD if curses.has_colors() else curses.A_BOLD
-        paused = " (⏸  paused)" if app.player.is_paused() else ""
-        _safe_addstr(stdscr, np_line_y, 0, f"▶ Now: {app.now_playing}{paused}"[: max(0, w - 1)], np_attr)
+        paused = " [PAUSED]" if app.player.is_paused() else ""
+        _safe_addstr(stdscr, np_line_y, 0, f">> Now: {app.now_playing}{paused}"[: max(0, w - 1)], np_attr)
 
         pos = app.player.position_seconds()
         dur = app.player.duration_seconds()
@@ -314,17 +496,33 @@ def _draw(stdscr, app: App) -> None:
         bar_attr = curses.color_pair(8) if curses.has_colors() else 0
         _safe_addstr(stdscr, np_line_y + 1, 0, line, bar_attr)
 
-        # Simple visualizer (peak meter)
+        # Simple visualizer (peak meter) - on separate line below progress bar
         lvl_l, lvl_r = app.player.levels()
-        overhead = len("♪ VU: L[▁▁▁▁▁] R[▁▁▁▁▁]")
-        avail = max(0, w - overhead - 1)
-        meter_w = max(1, min(24, avail // 2))
+        meter_w = 8  # Width of each visualizer
         meter_l = _meter_bar(meter_w, lvl_l)
         meter_r = _meter_bar(meter_w, lvl_r)
-        vu_line = f"♪ VU: L[{meter_l}] R[{meter_r}]"[: max(0, w - 1)]
-        _safe_addstr(stdscr, np_line_y + 2, 0, vu_line, curses.A_DIM)
+        
+        # Visualizer labels with same color
+        viz_attr = curses.color_pair(9) if curses.has_colors() else 0  # Cyan for both
+        
+        # Display visualizers on separate line below progress bar to avoid overlap
+        vu_line_y = np_line_y + 2
+        
+        # Left visualizer
+        x_pos = 0
+        _safe_addstr(stdscr, vu_line_y, x_pos, "L[", viz_attr)
+        x_pos += 2
+        _safe_addstr(stdscr, vu_line_y, x_pos, meter_l, viz_attr)
+        x_pos += len(meter_l)
+        _safe_addstr(stdscr, vu_line_y, x_pos, "]", viz_attr)
+        
+        # Right visualizer - on the RIGHT EDGE
+        right_x = w - len(meter_r) - 3
+        _safe_addstr(stdscr, vu_line_y, right_x, "R[", viz_attr)
+        _safe_addstr(stdscr, vu_line_y, right_x + 2, meter_r, viz_attr)
+        _safe_addstr(stdscr, vu_line_y, right_x + 2 + len(meter_r), "]", viz_attr)
 
-    # Status bar
+    # Status bar at bottom left
     status_attr = 0
     if curses.has_colors():
         s = app.status.lower()
@@ -333,8 +531,12 @@ def _draw(stdscr, app: App) -> None:
         elif s.startswith("playing") or s.startswith("searching"):
             status_attr = curses.color_pair(7)
 
-    status_line = f"⚙ Status: {app.status}"[: max(0, w - 1)]
+    status_line = f"[*] Status: {app.status}"[: max(0, w - len(HELP) - 5)]
     _safe_addstr(stdscr, h - 1, 0, status_line, status_attr)
+    
+    # Keyboard controls at bottom right
+    controls_line = HELP[: max(0, w - 1)]
+    _safe_addstr(stdscr, h - 1, max(0, w - len(controls_line) - 1), controls_line)
 
     # Cursor visibility + placement.
     try:
@@ -344,7 +546,7 @@ def _draw(stdscr, app: App) -> None:
 
     if app.mode == "query":
         try:
-            stdscr.move(4, bar_x + min(len(q), bar_w))
+            stdscr.move(8, bar_x + min(len(q), bar_w))
         except Exception:
             pass
 
@@ -417,6 +619,7 @@ def _handle_input(ch: int, app: App) -> bool:
     if ch in (ord("s"), ord("S")):
         app.player.stop()
         app.now_playing = ""
+        app.show_lyrics = False  # Hide lyrics when music is stopped
 
         # Cancel/ignore any in-flight play or seek requests.
         app._play_generation += 1
@@ -440,6 +643,13 @@ def _handle_input(ch: int, app: App) -> bool:
     if ch in (ord("p"), ord("P"), ord(" ")):
         app.player.toggle_pause()
         app.status = "Paused." if app.player.is_paused() else "Playing."
+        return True
+
+    # Lyrics toggle (L key)
+    if ch in (ord("l"), ord("L")):
+        app.show_lyrics = not app.show_lyrics
+        status_text = "Lyrics: ON" if app.show_lyrics else "Lyrics: OFF"
+        app.status = status_text
         return True
 
     # Seeking (only when we have a duration)

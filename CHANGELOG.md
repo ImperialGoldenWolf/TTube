@@ -17,12 +17,12 @@
   - Visual feedback with background colors
   
 - **Added special characters**: Improved visual polish with Unicode symbols:
-  - `▶` for play/navigation indicators
+  - `>>` for play/navigation indicators
   - `🔍` for search icon
   - `📋` for results section
   - `♪` for audio/VU meter
   - `⚙` for status messages
-  - `⏸` for pause indicator
+  - `[PAUSED]` for pause indicator
   - `█░` for scrollbar visualization
   
 - **Reorganized layout**:
