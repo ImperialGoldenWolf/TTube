@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TTube +</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- Custom Window Titlebar -->
+<div class="titlebar" id="titlebar">
+  <div class="tb-title">TTube +</div>
+  <div class="tb-controls" style="-webkit-app-region: no-drag;">
+    <button class="tb-btn" onclick="pywebview.api.minimize()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+    <button class="tb-btn" onclick="pywebview.api.maximize()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/></svg></button>
+    <button class="tb-btn tb-close" onclick="pywebview.api.close()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- ── Left sidebar ─────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+
+    <div class="user-profile-btn" onclick="openSettings()">
+      <img id="user-avatar-img" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" onerror="this.src='data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='">
+      <span id="user-name-txt">Guest</span>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="nav-menu">
+      <button class="nav-btn active" data-view="home">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Home
+      </button>
+      <button class="nav-btn" data-view="library">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        Library
+      </button>
+    </nav>
+
+    <!-- Artists -->
+    <div class="sidebar-section">
+      <div class="section-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Artists
+      </div>
+      <div id="artist-list" class="nav-list">
+        <!-- populated by JS -->
+      </div>
+    </div>
+
+    <!-- Playlists -->
+    <div class="sidebar-section playlists-section">
+      <div class="section-label" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          Playlists
+        </div>
+        <button onclick="createPlaylist()" style="background:none; border:none; color:var(--gray); cursor:pointer;" title="New Playlist">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 16px; height: 16px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+      </div>
+      <div id="playlist-list" class="nav-list">
+        <!-- populated by JS -->
+      </div>
+    </div>
+
+    <!-- Downloads Progress -->
+    <div class="sidebar-section dl-section">
+      <div id="dl-widget" class="dl-widget hidden">
+        <div class="dl-name" id="dl-name">…</div>
+        <div class="dl-bar-wrap"><div id="dl-bar" class="dl-bar"></div></div>
+        <div class="dl-pct" id="dl-pct">0%</div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── Main content ──────────────────────────────────────────────────── -->
+  <main class="main">
+    <div class="main-header">
+      
+      <div class="header-left">
+        <h1 id="main-title">Home</h1>
+        <div id="status-msg" class="status-msg hidden"></div>
+      </div>
+
+      <div class="search-box-wrap">
+        <div class="search-box">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" id="search-input" placeholder="Search songs, artists, albums..." autocomplete="off" spellcheck="false">
+          <button class="clear-btn hidden" id="clear-btn" title="Clear" onclick="clearSearch()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M18 6 6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div id="suggestions" class="suggestions hidden"></div>
+      </div>
+
+    </div>
+
+    <div class="scroll-wrap" id="scroll-wrap">
+
+      <!-- View: HOME -->
+      <div id="view-home" class="view-panel active">
+        <h1 id="greeting" style="margin-bottom: 24px; font-size: 2.2rem; font-weight: 700; letter-spacing: -0.5px;">Good Evening</h1>
+        <section class="home-section">
+          <div class="section-header">
+            <h2>Recently Played</h2>
+            <div class="section-arrows">
+              <button class="scroll-arrow" onclick="scrollGrid('recent-grid', -400)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+              <button class="scroll-arrow" onclick="scrollGrid('recent-grid', 400)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+            </div>
+          </div>
+          <div id="recent-grid" class="cards-grid">
+            <div class="empty-text">No recent history</div>
+          </div>
+        </section>
+
+        <section class="home-section" id="top-artists-section" style="display:none;">
+          <div class="section-header">
+            <h2>Your Top Artists</h2>
+            <div class="section-arrows">
+              <button class="scroll-arrow" onclick="scrollGrid('top-artists-grid', -400)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+              <button class="scroll-arrow" onclick="scrollGrid('top-artists-grid', 400)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+            </div>
+          </div>
+          <div id="top-artists-grid" class="cards-grid">
+            <div class="spinner-small"></div>
+          </div>
+        </section>
+
+        <section class="home-section">
+          <div class="section-header">
+            <h2>Recommended</h2>
+            <div class="section-arrows">
+              <button class="scroll-arrow" onclick="scrollGrid('trending-grid', -400)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+              <button class="scroll-arrow" onclick="scrollGrid('trending-grid', 400)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+            </div>
+          </div>
+          <div id="trending-grid" class="cards-grid">
+            <div class="spinner-small"></div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- View: SEARCH -->
+      <div id="view-search" class="view-panel">
+        <div id="search-results-wrap" class="results-wrap">
+          <div class="empty-state" id="empty-state">
+            <div class="empty-icon">
+              <svg viewBox="0 0 96 96" fill="none"><circle cx="48" cy="48" r="47" stroke="#333" stroke-width="2"/><path d="M35 65 Q48 30 61 52" stroke="#555" stroke-width="3" stroke-linecap="round" fill="none"/><circle cx="48" cy="48" r="8" fill="#333"/><circle cx="48" cy="48" r="3" fill="var(--primary)"/></svg>
+            </div>
+            <div class="empty-title">Search for music</div>
+            <div class="empty-sub">Find tracks on YouTube</div>
+          </div>
+
+          <div class="search-layout hidden" id="search-layout">
+            <div class="search-top-result" id="search-top-result"></div>
+            <div class="search-songs-list" id="search-songs-list"></div>
+          </div>
+
+          <div id="search-loading" class="search-loading hidden">
+            <div class="spinner-large"></div>
+            <span>Searching YouTube…</span>
+          </div>
+          <div id="search-error" class="search-error hidden"></div>
+        </div>
+      </div>
+
+      <!-- View: LIBRARY -->
+      <div id="view-library" class="view-panel">
+        <table class="results-table" id="library-table">
+          <thead>
+            <tr>
+              <th class="col-num">#</th>
+              <th class="col-title">Local Tracks</th>
+              <th class="col-size">Size</th>
+              <th class="col-action"></th>
+            </tr>
+          </thead>
+          <tbody id="library-body"></tbody>
+        </table>
+        <div id="library-empty" class="hidden" style="padding: 40px 0; color: #b3b3b3;">
+          No downloads yet. Search and download tracks to build your library.
+        </div>
+      </div>
+
+      <!-- View: PLAYLIST -->
+      <div id="view-playlist" class="view-panel">
+        <div class="pl-header">
+          <h2 id="pl-title">Playlist</h2>
+          <button class="btn-danger" id="pl-delete-btn">Delete Playlist</button>
+        </div>
+        <table class="results-table" id="pl-table">
+          <thead>
+            <tr>
+              <th class="col-num">#</th>
+              <th class="col-title">Title</th>
+              <th class="col-action"></th>
+            </tr>
+          </thead>
+          <tbody id="pl-body"></tbody>
+        </table>
+      </div>
+
+      <!-- View: ARTIST -->
+      <div id="view-artist" class="view-panel">
+        <div class="artist-header">
+          <div class="artist-avatar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <div class="artist-header-info">
+            <div class="artist-badge">Artist Profile</div>
+            <h1 id="artist-title">Artist Name</h1>
+            <button class="follow-btn" id="artist-follow-btn">Follow</button>
+          </div>
+        </div>
+        
+        <div class="artist-content">
+          <h3>Top Tracks</h3>
+          <div id="artist-loading" class="spinner-small hidden"></div>
+          <table class="results-table hidden" id="artist-table">
+            <thead>
+              <tr>
+                <th class="col-num">#</th>
+                <th class="col-title">Title</th>
+              </tr>
+            </thead>
+            <tbody id="artist-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Lyrics Side Panel -->
+  <div id="lyrics-panel" class="lyrics-panel">
+    <div class="lyrics-header">Lyrics</div>
+    <div class="lyrics-anim-wrap">
+      <div id="lyric-line" class="lyric-text">—</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Player bar ──────────────────────────────────────────────────────── -->
+<footer class="player-bar" id="player-bar">
+
+  <!-- Left: now playing -->
+  <div class="player-left">
+    <div class="np-art-wrap">
+      <img id="np-art" class="np-art hidden" src="" alt="">
+      <div id="np-art-ph" class="np-art-ph">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+        </svg>
+      </div>
+      <div id="np-art-skel" class="skeleton-box skel-art hidden"></div>
+    </div>
+    
+    <div class="np-info">
+      <div id="np-info-content">
+        <div id="np-title"  class="np-title" title="Click to view full">—</div>
+        <div id="np-artist" class="np-artist" onclick="openArtist(this.textContent)">—</div>
+      </div>
+      <div id="np-info-skel" class="hidden">
+        <div class="skeleton-box skel-line" style="width: 120px; margin-bottom: 6px;"></div>
+        <div class="skeleton-box skel-line" style="width: 80px;"></div>
+      </div>
+    </div>
+    <div class="np-badges">
+      <span id="ch-badge" class="ch-badge hidden"></span>
+    </div>
+  </div>
+
+  <!-- Center: controls + progress -->
+  <div class="player-center">
+    <div class="controls">
+      <button class="ctrl-btn" id="seek-back-btn" title="Rewind 10s" onclick="seekRel(-10)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 17l-5-5 5-5"/><path d="M18 17l-5-5 5-5"/></svg>
+      </button>
+      <button class="ctrl-btn ctrl-main" id="play-btn" title="Play / Pause" onclick="togglePause()">
+        <svg id="icon-play" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+        <svg id="icon-pause" viewBox="0 0 24 24" fill="currentColor" class="hidden">
+          <rect x="4"  y="3" width="5" height="18" rx="1"/><rect x="15" y="3" width="5" height="18" rx="1"/>
+        </svg>
+      </button>
+      <button class="ctrl-btn" id="seek-fwd-btn" title="Forward 10s" onclick="seekRel(10)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 17l5-5-5-5"/><path d="M6 17l5-5-5-5"/></svg>
+      </button>
+      <button class="ctrl-btn" id="stop-btn" title="Stop" onclick="stopPlayback()" style="margin-left: 12px;">
+        <svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+      </button>
+    </div>
+
+    <div class="progress-row">
+      <span id="pos-time" class="time-lbl">—:——</span>
+      <div class="progress-wrap" id="progress-wrap"
+           onmousedown="startSeek(event)" ontouchstart="startSeek(event)">
+        <div class="progress-track">
+          <div id="prog-buf"    class="prog-buf"></div>
+          <div id="prog-played" class="prog-played"></div>
+        </div>
+        <div id="prog-thumb" class="prog-thumb"></div>
+      </div>
+      <span id="dur-time" class="time-lbl">—:——</span>
+    </div>
+  </div>
+
+  <!-- Right: VU + loading -->
+  <div class="player-right">
+    <button class="ctrl-btn lyrics-toggle-btn" id="lyrics-toggle-btn" title="Toggle Lyrics" onclick="toggleLyricsModal()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+    </button>
+    <div class="vu-wrap" id="vu-wrap">
+      <span class="vu-lbl">L</span>
+      <div class="vu-col">
+        <div class="vu-track"><div id="vu-l" class="vu-fill" style="width:0%"></div></div>
+        <div class="vu-track"><div id="vu-r" class="vu-fill vu-r" style="width:0%"></div></div>
+      </div>
+      <span class="vu-lbl">R</span>
+    </div>
+    <div id="loading-ring" class="loading-ring hidden">
+      <svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" fill="none" stroke="var(--primary)" stroke-width="3" stroke-dasharray="80" stroke-dashoffset="20" stroke-linecap="round"/></svg>
+    </div>
+  </div>
+
+</footer>
+
+<!-- Modals & Overlays -->
+<div id="playlist-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h3>Add to Playlist</h3>
+    <div id="modal-pl-list" class="modal-list"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="new-pl-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h3>New Playlist</h3>
+    <input type="text" id="new-pl-input" class="modal-input" placeholder="Playlist Name" autocomplete="off" spellcheck="false">
+    <div class="modal-actions" style="margin-top: 16px;">
+      <button class="btn-cancel" onclick="closeNewPlModal()">Cancel</button>
+      <button class="btn-primary" onclick="submitNewPlaylist()" style="margin-left: 12px;">Create</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Lyrics Modal -->
+<div id="lyrics-modal" class="lyrics-modal hidden">
+  <div class="lyrics-close-btn" onclick="toggleLyricsModal()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </div>
+  <div class="lyrics-bg-blur" id="lyrics-bg-blur"></div>
+  <div class="lyrics-content-wrap" id="lyrics-content-wrap">
+    <!-- Lyrics lines populate here -->
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settings-modal" class="modal-overlay hidden">
+  <div class="modal settings-modal-box">
+    <div class="settings-header">
+      <h3>Settings</h3>
+      <button class="tb-btn" onclick="closeSettings()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    
+    <div class="settings-body">
+      <div class="settings-section">
+        <h4>Profile</h4>
+        <div class="settings-row">
+          <label>Username</label>
+          <input type="text" id="setting-username" class="modal-input" placeholder="Guest" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="settings-row">
+          <label>Avatar URL</label>
+          <input type="text" id="setting-avatar" class="modal-input" placeholder="https://..." autocomplete="off" spellcheck="false">
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h4>Playback</h4>
+        <div class="settings-row">
+          <label>Audio Quality</label>
+          <select id="setting-quality" class="modal-input" style="background: rgba(255,255,255,0.05); color: #fff; padding: 10px; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;">
+            <option value="standard">Standard (Low Bandwidth)</option>
+            <option value="high">High Quality (bestaudio)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="settings-section danger-zone">
+        <h4>Data Management</h4>
+        <button class="btn-danger" onclick="eraseAllData()">Erase All User Data</button>
+      </div>
+    </div>
+    
+    <div class="modal-actions" style="margin-top: 24px;">
+      <button class="btn-cancel" onclick="closeSettings()">Cancel</button>
+      <button class="btn-primary" onclick="saveSettings()" style="margin-left: 12px;">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Onboarding Wizard -->
+<div id="onboarding-wizard" class="onboarding-wizard hidden">
+  <div class="onboard-step active" id="onboard-step-1">
+    <div class="onboard-logo-glow">TTube +</div>
+    <h1 class="onboard-title">Welcome to the future of music.</h1>
+    <button class="btn-primary onboard-next" onclick="nextOnboardStep(2)">Get Started</button>
+  </div>
+  
+  <div class="onboard-step" id="onboard-step-2">
+    <h1 class="onboard-title">What should we call you?</h1>
+    <input type="text" id="onboard-name-input" class="onboard-input" placeholder="Your Name" autocomplete="off" spellcheck="false">
+    <input type="text" id="onboard-avatar-input" class="onboard-input avatar-in" placeholder="Avatar URL (Optional)" autocomplete="off" spellcheck="false">
+    <button class="btn-primary onboard-next" onclick="finishOnboarding()">Let's Go</button>
+  </div>
+  
+
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+
+<!-- Lyrics Modal -->
+<div id="lyrics-modal" class="lyrics-modal hidden">
+  <div class="lyrics-close-btn" onclick="toggleLyricsModal()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </div>
+  <div class="lyrics-bg-blur" id="lyrics-bg-blur"></div>
+  <div class="lyrics-content-wrap" id="lyrics-content-wrap">
+    <!-- Lyrics lines populate here -->
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settings-modal" class="modal-overlay hidden">
+  <div class="modal settings-modal-box">
+    <div class="settings-header">
+      <h3>Settings</h3>
+      <button class="tb-btn" onclick="closeSettings()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    
+    <div class="settings-body">
+      <div class="settings-section">
+        <h4>Profile</h4>
+        <div class="settings-row">
+          <label>Username</label>
+          <input type="text" id="setting-username" class="modal-input" placeholder="Guest" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="settings-row">
+          <label>Avatar URL</label>
+          <input type="text" id="setting-avatar" class="modal-input" placeholder="https://..." autocomplete="off" spellcheck="false">
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h4>Appearance</h4>
+        <div class="settings-row">
+          <label>Theme Color</label>
+          <div class="theme-colors">
+            <div class="color-swatch purple" onclick="setTheme('purple')"></div>
+            <div class="color-swatch blue" onclick="setTheme('blue')"></div>
+            <div class="color-swatch green" onclick="setTheme('green')"></div>
+            <div class="color-swatch red" onclick="setTheme('red')"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section danger-zone">
+        <h4>Data Management</h4>
+        <button class="btn-danger" onclick="eraseAllData()">Erase All User Data</button>
+      </div>
+    </div>
+    
+    <div class="modal-actions" style="margin-top: 24px;">
+      <button class="btn-cancel" onclick="closeSettings()">Cancel</button>
+      <button class="btn-primary" onclick="saveSettings()" style="margin-left: 12px;">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Onboarding Wizard -->
+<div id="onboarding-wizard" class="onboarding-wizard hidden">
+  <div class="onboard-step active" id="onboard-step-1">
+    <div class="onboard-logo-glow">TTube +</div>
+    <h1 class="onboard-title">Welcome to the future of music.</h1>
+    <button class="btn-primary onboard-next" onclick="nextOnboardStep(2)">Get Started</button>
+  </div>
+  
+  <div class="onboard-step" id="onboard-step-2">
+    <h1 class="onboard-title">What should we call you?</h1>
+    <input type="text" id="onboard-name-input" class="onboard-input" placeholder="Your Name" autocomplete="off" spellcheck="false">
+    <input type="text" id="onboard-avatar-input" class="onboard-input avatar-in" placeholder="Avatar URL (Optional)" autocomplete="off" spellcheck="false">
+    <button class="btn-primary onboard-next" onclick="nextOnboardStep(3)">Continue</button>
+  </div>
+  
+  <div class="onboard-step" id="onboard-step-3">
+    <h1 class="onboard-title">Pick your vibe.</h1>
+    <div class="theme-colors large">
+      <div class="color-swatch purple" onclick="setThemePreview('purple')"></div>
+      <div class="color-swatch blue" onclick="setThemePreview('blue')"></div>
+      <div class="color-swatch green" onclick="setThemePreview('green')"></div>
+      <div class="color-swatch red" onclick="setThemePreview('red')"></div>
+    </div>
+    <button class="btn-primary onboard-next" onclick="finishOnboarding()" style="margin-top:40px;">Let's Go</button>
+  </div>
+</div>

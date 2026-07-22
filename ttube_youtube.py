@@ -6,6 +6,7 @@ import json
 import urllib.request
 
 import yt_dlp
+from ytmusicapi import YTMusic
 
 
 @dataclass(frozen=True)
@@ -40,42 +41,36 @@ class Lyrics:
 
 
 def search_youtube(query: str, limit: int = 10) -> List[SearchResult]:
-    """Fast metadata-only search (no download)."""
+    """Fast metadata-only search using YTMusicAPI for high quality official results."""
     query = (query or "").strip()
     if not query:
         return []
 
-    ydl_opts: Dict[str, Any] = {
-        "quiet": True,
-        "no_warnings": True,
-        "skip_download": True,
-        "extract_flat": True,
-        "noplaylist": True,
-    }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(f"ytsearch{limit}:{query}", download=False)
-
-    entries = (info or {}).get("entries") or []
-    results: List[SearchResult] = []
-
-    for e in entries:
-        if not e:
-            continue
-
-        video_id = e.get("id")
-        title = e.get("title") or "(untitled)"
-        webpage_url = e.get("webpage_url")
-
-        if not webpage_url and video_id:
+    try:
+        ytmusic = YTMusic()
+        # Search for songs specifically to get official tracks
+        results_raw = ytmusic.search(query, filter="songs", limit=limit)
+        
+        results: List[SearchResult] = []
+        for r in results_raw:
+            video_id = r.get("videoId")
+            if not video_id:
+                continue
+                
+            title = r.get("title", "(untitled)")
+            artists = ", ".join([a.get("name", "") for a in r.get("artists", []) if a.get("name")])
+            if artists:
+                title = f"{title} - {artists}"
+                
             webpage_url = f"https://www.youtube.com/watch?v={video_id}"
-
-        if not video_id or not webpage_url:
-            continue
-
-        results.append(SearchResult(title=title, video_id=video_id, webpage_url=webpage_url))
-
-    return results
+            results.append(SearchResult(title=title, video_id=video_id, webpage_url=webpage_url))
+            
+        return results
+    except Exception as e:
+        with open("error_log.txt", "a") as f:
+            import traceback
+            f.write(f"YTMusic search failed: {e}\n{traceback.format_exc()}\n")
+        return []
 
 
 def _pick_best_audio_format(formats: List[Dict[str, Any]]) -> Dict[str, Any] | None:
@@ -112,6 +107,7 @@ def resolve_best_audio_stream(webpage_url: str) -> AudioStream:
         "skip_download": True,
         "format": "bestaudio/best",
         "noplaylist": True,
+        "extractor_args": {"youtube": {"player_client": ["android"]}},
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -272,6 +268,7 @@ def fetch_lyrics(webpage_url: str) -> Lyrics | None:
             "skip_download": True,
             "getsubtitles": True,
             "noplaylist": True,
+            "extractor_args": {"youtube": {"player_client": ["android"]}},
         }
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:

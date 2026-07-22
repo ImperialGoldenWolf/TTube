@@ -7,15 +7,20 @@ from pathlib import Path
 
 block_cipher = None
 
+from PyInstaller.utils.hooks import collect_data_files
+
 # Determine if running on Windows
 is_windows = sys.platform == 'win32'
+
+datas = [('ttube.ico', '.')]
+datas += collect_data_files('ytmusicapi')
 
 a = Analysis(
     ['ttube.py'],
     pathex=[],
     binaries=[],
-    datas=[('ttube.ico', '.')],
-    hiddenimports=['sounddevice', 'yt_dlp', 'imageio_ffmpeg', 'windows_curses' if is_windows else ''],
+    datas=datas,
+    hiddenimports=['sounddevice', 'yt_dlp', 'imageio_ffmpeg', 'ytmusicapi', 'windows_curses' if is_windows else ''],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

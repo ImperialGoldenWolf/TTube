@@ -254,15 +254,16 @@ class StreamPlayer:
                 "-hide_banner",
                 "-loglevel",
                 "error",
-                "-reconnect",
-                "1",
-                "-reconnect_streamed",
-                "1",
-                "-reconnect_delay_max",
-                "10",
                 "-rtbufsize",
                 "50M",
             ]
+            if stream_url.startswith("http"):
+                cmd += [
+                    "-reconnect", "1",
+                    "-reconnect_streamed", "1",
+                    "-reconnect_delay_max", "10",
+                ]
+            
             if headers_arg:
                 cmd += ["-headers", headers_arg]
 
@@ -285,11 +286,17 @@ class StreamPlayer:
                 "pipe:1",
             ]
 
+            import sys
+            creationflags = 0
+            if sys.platform == "win32":
+                creationflags = subprocess.CREATE_NO_WINDOW
+
             self._proc = subprocess.Popen(
                 cmd,
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
+                creationflags=creationflags,
             )
 
             bytes_per_frame = self._fmt.bytes_per_frame
