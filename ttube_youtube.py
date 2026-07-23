@@ -110,22 +110,36 @@ _info_cache: Dict[str, Any] = {}
 
 def resolve_best_audio_stream(webpage_url: str) -> AudioStream:
     """Resolve a direct best-audio URL plus headers for ffmpeg."""
-    ydl_opts: Dict[str, Any] = {
-        "quiet": True,
-        "no_warnings": True,
-        "skip_download": True,
-        "format": "bestaudio/best",
-        "noplaylist": True,
-        "extractor_args": {"youtube": {"player_client": ["android", "mweb"]}},
-    }
-
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(webpage_url, download=False)
-    except Exception as e:
-        raise RuntimeError(_strip_ansi(str(e))) from None
+    clients = [
+        ["android", "mweb"],
+        ["ios", "android"],
+        ["web", "android"],
+        ["android_creator", "mweb"]
+    ]
+    
+    info = None
+    last_err = None
+    
+    for client in clients:
+        ydl_opts: Dict[str, Any] = {
+            "quiet": True,
+            "no_warnings": True,
+            "skip_download": True,
+            "format": "bestaudio/best",
+            "noplaylist": True,
+            "extractor_args": {"youtube": {"player_client": client}},
+        }
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(webpage_url, download=False)
+            if info:
+                break
+        except Exception as e:
+            last_err = e
 
     if not info:
+        if last_err:
+            raise RuntimeError(_strip_ansi(str(last_err))) from None
         raise RuntimeError("yt-dlp returned no info")
 
     # Cache for subtitle reuse (fetched later by fetch_lyrics / fetch_available_caption_tracks)
