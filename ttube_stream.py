@@ -6,7 +6,10 @@ import sys
 import threading
 import time
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple, List
+import queue
+
+
 
 
 def _resolve_ffmpeg_exe(ffmpeg: str) -> str:
@@ -138,6 +141,8 @@ class StreamPlayer:
         self._viz_stride_frames: int = 4  # sample every N frames for cheap peak estimation
         self._viz_decay: float = 0.85
 
+
+
     def is_active(self) -> bool:
         return self._sd_stream is not None
 
@@ -146,6 +151,8 @@ class StreamPlayer:
 
     def levels(self) -> tuple[float, float]:
         return self._viz_levels
+
+
 
     def toggle_pause(self) -> None:
         if self._paused.is_set():
@@ -185,6 +192,7 @@ class StreamPlayer:
                 self._reader.join(timeout=1.0)
                 self._reader = None
 
+
             if self._proc is not None:
                 try:
                     self._proc.kill()
@@ -205,6 +213,7 @@ class StreamPlayer:
             self._seek_offset_seconds = 0.0
             self._played_frames = 0
             self._viz_levels = (0.0, 0.0)
+
 
     def play(
         self,
@@ -253,9 +262,9 @@ class StreamPlayer:
                 "-nostdin",
                 "-hide_banner",
                 "-loglevel",
-                "error",
+                "quiet",  # quiet so stderr is purely raw video
                 "-rtbufsize",
-                "50M",
+                "2M",
             ]
             if stream_url.startswith("http"):
                 cmd += [
@@ -274,7 +283,7 @@ class StreamPlayer:
             cmd += [
                 "-i",
                 stream_url,
-                "-vn",
+                "-map", "0:a:0?",
                 "-f",
                 "s16le",
                 "-acodec",
@@ -285,6 +294,8 @@ class StreamPlayer:
                 str(self._fmt.samplerate),
                 "pipe:1",
             ]
+            
+
 
             import sys
             creationflags = 0
@@ -297,6 +308,7 @@ class StreamPlayer:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
                 creationflags=creationflags,
+                bufsize=0,
             )
 
             bytes_per_frame = self._fmt.bytes_per_frame
@@ -334,6 +346,8 @@ class StreamPlayer:
 
             self._reader = threading.Thread(target=reader_loop, name="ttube-ffmpeg-reader", daemon=True)
             self._reader.start()
+
+
 
             bytes_per_frame = self._fmt.bytes_per_frame
 

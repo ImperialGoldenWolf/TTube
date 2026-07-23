@@ -35,3 +35,15 @@ Thumbs.db
 # Binary artifacts
 *.exe
 *.msi
+
+# Ignore scratch scripts, config, and test files
+*.bat
+*.spec
+error_log.txt
+puppeteer_test/
+append_modals.py
+check_bt.py
+fix.py
+inject.py
+modify_*.py
+test_*.py
