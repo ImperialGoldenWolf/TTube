@@ -110,25 +110,34 @@ _info_cache: Dict[str, Any] = {}
 
 def resolve_best_audio_stream(webpage_url: str) -> AudioStream:
     """Resolve a direct best-audio URL plus headers for ffmpeg."""
-    clients = [
-        ["android", "mweb"],
-        ["ios", "android"],
-        ["web", "android"],
-        ["android_creator", "mweb"]
+    import os
+    
+    configs = [
+        # Try different clients first (fastest)
+        {"extractor_args": {"youtube": {"player_client": ["android", "mweb"]}}},
+        {"extractor_args": {"youtube": {"player_client": ["tv", "web"]}}},
+        {"extractor_args": {"youtube": {"player_client": ["tv_embedded"]}}},
+        {"extractor_args": {"youtube": {"player_client": ["ios", "android"]}}},
+        {"extractor_args": {"youtube": {"player_client": ["web", "android"]}}}
     ]
     
     info = None
     last_err = None
     
-    for client in clients:
+    for cfg in configs:
         ydl_opts: Dict[str, Any] = {
             "quiet": True,
             "no_warnings": True,
             "skip_download": True,
             "format": "bestaudio/best",
             "noplaylist": True,
-            "extractor_args": {"youtube": {"player_client": client}},
         }
+        ydl_opts.update(cfg)
+        
+        # Automatically use cookies.txt if the user provides one in the root directory
+        if os.path.exists("cookies.txt"):
+            ydl_opts["cookiefile"] = "cookies.txt"
+        
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(webpage_url, download=False)
