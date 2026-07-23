@@ -8,7 +8,7 @@
 
 ; ── Product metadata ───────────────────────────────────────────────────────────
 !define PRODUCT_NAME      "TTube"
-!define PRODUCT_VERSION   "0.1.0"
+!define PRODUCT_VERSION   "3.1.2"
 !define PRODUCT_PUBLISHER "ImperialGoldenWolf"
 !define PRODUCT_WEB_SITE  "https://github.com/ImperialGoldenWolf/TTube"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\ttube.exe"
